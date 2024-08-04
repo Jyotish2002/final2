@@ -11,10 +11,27 @@ from langchain.prompts import PromptTemplate
 from dotenv import load_dotenv
 import datetime
 import google.generativeai as genai
+import pyrebase
 
 # Load environment variables
 load_dotenv()
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+firebase_api_key = os.getenv("FIREBASE_API_KEY")
+
+# Firebase configuration for Pyrebase
+firebase_config = {
+    "apiKey": firebase_api_key,
+    "authDomain": os.getenv("FIREBASE_AUTH_DOMAIN"),
+    "databaseURL": os.getenv("FIREBASE_DATABASE_URL"),
+    "projectId": os.getenv("FIREBASE_PROJECT_ID"),
+    "storageBucket": os.getenv("FIREBASE_STORAGE_BUCKET"),
+    "messagingSenderId": os.getenv("FIREBASE_MESSAGING_SENDER_ID"),
+    "appId": os.getenv("FIREBASE_APP_ID"),
+}
+
+# Initialize Pyrebase
+firebase = pyrebase.initialize_app(firebase_config)
+auth_pyrebase = firebase.auth()
 
 # Initialize Firebase Admin SDK
 def initialize_firebase():
@@ -29,14 +46,14 @@ initialize_firebase()
 # Firebase Auth functions
 def register_user(email, password):
     try:
-        user = auth.create_user(email=email, password=password)
-        return f"User created successfully: {user.uid}"
+        user = auth_pyrebase.create_user_with_email_and_password(email, password)
+        return f"User created successfully: {user['localId']}"
     except Exception as e:
         return f"Error creating user: {str(e)}"
 
 def authenticate_user(email, password):
     try:
-        user = auth.get_user_by_email(email)
+        user = auth_pyrebase.sign_in_with_email_and_password(email, password)
         return user
     except Exception as e:
         return None
@@ -160,9 +177,9 @@ def main():
                 user = authenticate_user(email, password)
                 if user:
                     st.session_state.authenticated = True
-                    st.session_state.user_id = user.uid
+                    st.session_state.user_id = user['localId']
                 else:
-                    st.error("Invalid credentials")
+                    st.error("Wrong Information provided please try again.")
 
     else:
         # Authenticated user sees this
